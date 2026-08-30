@@ -119,7 +119,7 @@ class WindowManager {
                 const options = {
                     type: 'question',
                     buttons: ['No', 'Yes'],
-                    message: 'Exit gSender',
+                    message: 'Exit gSender-me',
                     detail: 'Are you sure you want to exit?',
                     icon: image,
                 };

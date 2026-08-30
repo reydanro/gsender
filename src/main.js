@@ -282,7 +282,7 @@ const main = () => {
             };
             const options = {
                 ...bounds,
-                title: `gSender ${pkg.version}`,
+                title: `gSender-me ${pkg.version}`,
                 kiosk,
             };
             const window = await windowManager.openWindow(url, options, splashScreen);
@@ -513,7 +513,7 @@ const main = () => {
                     minWidth: 550 / factor,
                     minHeight: 460 / factor,
                     useContentSize: true,
-                    title: 'gSender',
+                    title: 'gSender-me',
                     parent: window,
                 };
                 // Hash router URL should look like '{url}/#/widget/:id'

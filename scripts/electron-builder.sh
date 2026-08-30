@@ -82,6 +82,11 @@ if [ "$NEEDS_INSTALL" = true ]; then
     # Use frozen lockfile for faster, deterministic installs
     yarn install --production --frozen-lockfile --prefer-offline --ignore-engines 2>/dev/null || \
     yarn install --production --ignore-engines
+    # This install has its own node_modules, separate from the root's, so the
+    # root "postinstall": "patch-package" hook never runs here — apply the
+    # same patches explicitly (e.g. usb's binding.gyp needs a C++17 fix to
+    # compile against the hoisted node-addon-api version; see patches/).
+    "$__dirname/../node_modules/.bin/patch-package" --patch-dir ../../patches
     printf '%s' "$CURRENT_DEPS_HASH" > "$DEPS_HASH_FILE"
 else
     echo "✓ Dependencies already installed, skipping..."
@@ -94,13 +99,16 @@ REBUILD_MARKER="$DIST_DIR/.rebuild-${electron_version}"
 
 if [ ! -f "$REBUILD_MARKER" ]; then
     echo "Rebuilding native modules for electron ${electron_version}"
-    yarn electron-rebuild -- \
+    if yarn electron-rebuild -- \
         --version=${electron_version:1} \
         --module-dir=dist/gsender \
-        --which-module=serialport
-
-    # Mark that rebuild is done for this electron version
-    touch "$REBUILD_MARKER"
+        --which-module=serialport; then
+        # Mark that rebuild is done for this electron version
+        touch "$REBUILD_MARKER"
+    else
+        echo "✗ electron-rebuild failed; native modules were not rebuilt for Electron" >&2
+        exit 1
+    fi
 else
     echo "✓ Native modules already rebuilt for electron ${electron_version}, skipping..."
 fi
