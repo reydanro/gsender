@@ -36,6 +36,7 @@ import {
 import { METRIC_UNITS, PROBING_CATEGORY } from '../../constants';
 import ProbeImage from './ProbeImage';
 import ProbeDiameter from './ProbeDiameter';
+import ProbeDirectionSelection from './ProbeDirectionSelection';
 import { Actions, State } from './definitions';
 import useKeybinding from 'app/lib/useKeybinding';
 import useShuttleEvents from 'app/hooks/useShuttleEvents';
@@ -125,6 +126,7 @@ const Probe = ({ state, actions }: ProbeProps) => {
         selectedProbeCommand,
         touchplate,
         touchplateTypeSwitcher,
+        direction,
     } = state;
 
     const { touchplateType } = touchplate;
@@ -209,6 +211,12 @@ const Probe = ({ state, actions }: ProbeProps) => {
                     />
                 </div>
             </div>
+            {touchplateType !== 'Z Probe' && (
+                <ProbeDirectionSelection
+                    direction={direction}
+                    onClick={actions.nextProbeDirection}
+                />
+            )}
         </div>
     );
 };

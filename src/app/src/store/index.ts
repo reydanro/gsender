@@ -351,10 +351,6 @@ const migrateStore = (): void => {
         return;
     }
 
-    if (semver.lt(cnc.version, '1.6.4')) {
-        store.set('widgets.probe.direction', defaultState.widgets.probe.direction);
-    }
-
     if (semver.lt(cnc.version, '1.6.2')) {
         store.set('widgets.atc.templates', defaultATCIMacros);
     }
