@@ -20,6 +20,22 @@ function truncatePortName(port: string = ''): string {
     return portName.substring(portName.length - 10, portName.length);
 }
 
+// Predefined connections shown in addition to whatever ports are detected
+// live. Local development only, sourced from VITE_DEV_PREDEFINED_CONNECTIONS (see
+// .env.example, set in src/app/.env for local dev) -- never present in a
+// production build, since import.meta.env.MODE is inlined at build time
+// and the whole block is dead-code-eliminated when it's not 'development'.
+const PREDEFINED_CONNECTIONS: { name: string; port: string }[] =
+    import.meta.env.MODE === 'development'
+        ? (import.meta.env.VITE_DEV_PREDEFINED_CONNECTIONS ?? '')
+              .split(',')
+              .map((entry: string) => {
+                  const [name, port] = entry.split(':');
+                  return { name: name?.trim(), port: port?.trim() };
+              })
+              .filter((p: { name?: string; port?: string }) => p.name && p.port)
+        : [];
+
 export function PortListingButton({ port, connectionHandler, baud }: { port: Port, connectionHandler: (port: string, type: ConnectionType) => void, baud: number }): JSX.Element {
     return (
         <button
@@ -86,6 +102,27 @@ export function PortListings(props: PortListingsProps): JSX.Element {
                     connectionHandler={props.connectHandler}
                     baud={baud}
                 />
+            ))}
+            {PREDEFINED_CONNECTIONS.map(({ name, port }) => (
+                <button
+                    type="button"
+                    key={`predefined-port-${port}`}
+                    className="w-full m-0 p-3 max-sm:p-2 shadow-inner flex flex-row items-center justify-between hover:bg-gray-100 dark:hover:bg-slate-800 outline-none"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        props.connectHandler(port, ConnectionType.USB);
+                    }}
+                >
+                    <span className="text-4xl">
+                        <BsUsbPlug />
+                    </span>
+                    <div className="flex flex-col gap-1 text-right">
+                        <span className="font-bold">{name}</span>
+                        <span className="text-sm text-gray-600 font-normal">
+                            {port} ({baud})
+                        </span>
+                    </div>
+                </button>
             ))}
             <button
                 className="px-4 shadow-inner py-4 flex flex-row items-center justify-between hover:bg-gray-50 dark:hover:bg-slate-800 outline-none mt-1 w-full"

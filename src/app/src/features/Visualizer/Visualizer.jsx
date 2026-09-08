@@ -3035,8 +3035,24 @@ class Visualizer extends Component {
             this.controls.reset();
         }
 
-        this.camera.up.set(0, 1, 0);
-        this.camera.position.set(0, 0, CAMERA_DISTANCE);
+        // Keep the same world-up axis (Z) as every other preset, so that
+        // dragging afterward orbits consistently instead of switching to a
+        // different reference axis. Looking straight down Z is the classic
+        // gimbal-lock singularity for an "up"-based orbit camera; the
+        // controls handle orbiting through it fine by clamping the polar
+        // angle away from the pole (see oldTrackballControls.js), but the
+        // static lookAt() for this exact position is still degenerate (up
+        // parallel to the view direction) and falls back to an internal,
+        // not-controllable-here nudge for screen orientation. A tiny,
+        // visually imperceptible offset off the exact pole (along -Y, at
+        // the controls' azimuth = 0) resolves that cleanly instead, giving
+        // screen-right = world +X and screen-up = world +Y.
+        this.camera.up.set(0, 0, 1);
+        this.camera.position.set(
+            0,
+            -CAMERA_DISTANCE * 0.001,
+            CAMERA_DISTANCE,
+        );
 
         if (this.viewport) {
             this.viewport.update();

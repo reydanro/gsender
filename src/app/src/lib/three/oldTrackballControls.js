@@ -89,6 +89,40 @@ const TrackballControls = function (object, domElement) {
 
     var EPS = 0.000001;
 
+    // Orbiting is done in spherical coordinates (radius, azimuth around the
+    // fixed world-up axis, polar angle measured from it).
+    //
+    // The polar angle is clamped strictly inside (0, PI), does not reach the poles fully 
+    // since azimuth is undefined exactly at one. 
+    // This margin is small enough to be visually imperceptible (a top
+    // view still looks exactly top-down).
+    var MIN_POLAR_ANGLE = 0.0002;
+
+    var WORLD_AXES = [
+        new THREE.Vector3(1, 0, 0),
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(0, 0, 1),
+    ];
+
+    // A stable (sideways, forward, up) right-handed basis for the given up
+    // axis. Unlike a basis derived from the current eye direction, this
+    // only depends on `up` (which changes rarely -- only when the camera
+    // switches to a different preset view) so it can't wobble frame to
+    // frame the way an eye-direction-derived basis can near the poles.
+    function computeOrbitBasis(up, outSideways, outForward) {
+        var ax = Math.abs(up.x),
+            ay = Math.abs(up.y),
+            az = Math.abs(up.z);
+        var helper =
+            ax <= ay && ax <= az
+                ? WORLD_AXES[0]
+                : ay <= az
+                  ? WORLD_AXES[1]
+                  : WORLD_AXES[2];
+        outSideways.crossVectors(helper, up).normalize();
+        outForward.crossVectors(up, outSideways).normalize();
+    }
+
     var lastPosition = new THREE.Vector3();
 
     var _state = STATE.NONE,
@@ -96,8 +130,8 @@ const TrackballControls = function (object, domElement) {
         _eye = new THREE.Vector3(),
         _movePrev = new THREE.Vector2(),
         _moveCurr = new THREE.Vector2(),
-        _lastAxis = new THREE.Vector3(),
-        _lastAngle = 0,
+        _lastAzimuthDelta = 0,
+        _lastPolarDelta = 0,
         _zoomStart = new THREE.Vector2(),
         _zoomEnd = new THREE.Vector2(),
         _touchZoomDistanceStart = 0,
@@ -185,58 +219,112 @@ const TrackballControls = function (object, domElement) {
         };
     })();
 
+    // Reads _eye's current position as (radius, azimuth, polar) around the
+    // fixed world-up axis (object.up), using the stable basis from
+    // computeOrbitBasis -- never a basis derived from _eye itself.
+    function eyeToSpherical(up, sideways, forward, out) {
+        var radius = _eye.length();
+        var upComponent = _eye.dot(up);
+        out.radius = radius;
+        out.polar = Math.acos(
+            THREE.MathUtils.clamp(upComponent / radius, -1, 1),
+        );
+        out.azimuth = Math.atan2(_eye.dot(forward), _eye.dot(sideways));
+        return out;
+    }
+
+    // Writes (radius, azimuth, polar) back to _eye.
+    function sphericalToEye(up, sideways, forward, spherical) {
+        var sinPolar = Math.sin(spherical.polar);
+        _eye
+            .copy(sideways)
+            .multiplyScalar(sinPolar * Math.cos(spherical.azimuth))
+            .addScaledVector(
+                forward,
+                sinPolar * Math.sin(spherical.azimuth),
+            )
+            .addScaledVector(up, Math.cos(spherical.polar))
+            .multiplyScalar(spherical.radius);
+    }
+
     this.rotateCamera = (function () {
-        var axis = new THREE.Vector3(),
-            quaternion = new THREE.Quaternion(),
-            eyeDirection = new THREE.Vector3(),
-            objectUpDirection = new THREE.Vector3(),
-            objectSidewaysDirection = new THREE.Vector3(),
-            moveDirection = new THREE.Vector3(),
-            angle;
+        var up = new THREE.Vector3(),
+            sideways = new THREE.Vector3(),
+            forward = new THREE.Vector3(),
+            spherical = { radius: 0, azimuth: 0, polar: 0 };
+
+        function applyOrbitDelta(azimuthDelta, polarDelta) {
+            _eye.copy(_this.object.position).sub(_this.target);
+
+            up.copy(_this.object.up).normalize();
+            computeOrbitBasis(up, sideways, forward);
+            eyeToSpherical(up, sideways, forward, spherical);
+
+            spherical.azimuth -= azimuthDelta;
+            spherical.polar = THREE.MathUtils.clamp(
+                spherical.polar - polarDelta,
+                MIN_POLAR_ANGLE,
+                Math.PI - MIN_POLAR_ANGLE,
+            );
+
+            sphericalToEye(up, sideways, forward, spherical);
+        }
 
         return function rotateCamera() {
-            moveDirection.set(
-                _moveCurr.x - _movePrev.x,
-                _moveCurr.y - _movePrev.y,
-                0,
-            );
-            angle = moveDirection.length();
+            var moveX = _moveCurr.x - _movePrev.x;
+            var moveY = _moveCurr.y - _movePrev.y;
 
-            if (angle) {
-                _eye.copy(_this.object.position).sub(_this.target);
-
-                eyeDirection.copy(_eye).normalize();
-                objectUpDirection.copy(_this.object.up).normalize();
-                objectSidewaysDirection
-                    .crossVectors(objectUpDirection, eyeDirection)
-                    .normalize();
-
-                objectUpDirection.setLength(_moveCurr.y - _movePrev.y);
-                objectSidewaysDirection.setLength(_moveCurr.x - _movePrev.x);
-
-                moveDirection.copy(
-                    objectUpDirection.add(objectSidewaysDirection),
+            if (moveX || moveY) {
+                _lastAzimuthDelta = moveX * _this.rotateSpeed;
+                _lastPolarDelta = -moveY * _this.rotateSpeed;
+                applyOrbitDelta(_lastAzimuthDelta, _lastPolarDelta);
+            } else if (
+                !_this.staticMoving &&
+                (_lastAzimuthDelta || _lastPolarDelta)
+            ) {
+                _lastAzimuthDelta *= Math.sqrt(
+                    1.0 - _this.dynamicDampingFactor,
                 );
-
-                axis.crossVectors(moveDirection, _eye).normalize();
-
-                angle *= _this.rotateSpeed;
-                quaternion.setFromAxisAngle(axis, angle);
-
-                _eye.applyQuaternion(quaternion);
-                _this.object.up.applyQuaternion(quaternion);
-
-                _lastAxis.copy(axis);
-                _lastAngle = angle;
-            } else if (!_this.staticMoving && _lastAngle) {
-                _lastAngle *= Math.sqrt(1.0 - _this.dynamicDampingFactor);
-                _eye.copy(_this.object.position).sub(_this.target);
-                quaternion.setFromAxisAngle(_lastAxis, _lastAngle);
-                _eye.applyQuaternion(quaternion);
-                _this.object.up.applyQuaternion(quaternion);
+                _lastPolarDelta *= Math.sqrt(1.0 - _this.dynamicDampingFactor);
+                applyOrbitDelta(_lastAzimuthDelta, _lastPolarDelta);
             }
 
             _movePrev.copy(_moveCurr);
+        };
+    })();
+
+    // Single-step orbit helpers used by keyboard arrow-key controls.
+    // angle > 0 orbits left / up; angle < 0 orbits right / down.
+    (function () {
+        var up = new THREE.Vector3(),
+            sideways = new THREE.Vector3(),
+            forward = new THREE.Vector3(),
+            spherical = { radius: 0, azimuth: 0, polar: 0 };
+
+        function step(azimuthDelta, polarDelta) {
+            _eye.copy(_this.object.position).sub(_this.target);
+
+            up.copy(_this.object.up).normalize();
+            computeOrbitBasis(up, sideways, forward);
+            eyeToSpherical(up, sideways, forward, spherical);
+
+            spherical.azimuth -= azimuthDelta;
+            spherical.polar = THREE.MathUtils.clamp(
+                spherical.polar - polarDelta,
+                MIN_POLAR_ANGLE,
+                Math.PI - MIN_POLAR_ANGLE,
+            );
+
+            sphericalToEye(up, sideways, forward, spherical);
+            _this.object.position.copy(_this.target).add(_eye);
+        }
+
+        _this.rotateLeft = function (angle) {
+            step(angle || 0, 0);
+        };
+
+        _this.rotateUp = function (angle) {
+            step(0, angle || 0);
         };
     })();
 
