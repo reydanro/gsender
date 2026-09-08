@@ -48,7 +48,11 @@ const tabs = [
     },
 ];
 
-const Tools = () => {
+interface ToolsProps {
+    tabNames?: string[];
+}
+
+const Tools = ({ tabNames }: ToolsProps) => {
     const rotary = useWidgetState('rotary');
     const { spindleFunctions, coolantFunctions, atcEnabled } =
         useWorkspaceState();
@@ -58,7 +62,7 @@ const Tools = () => {
 
     const atcEnabledOrCompiled = atcEnabled || atcReport === '1';
 
-    const filteredTabs = tabs.filter((tab) => {
+    const isTabVisible = (tab: TabItem) => {
         if (tab.label === 'Rotary' && !rotary.tab.show) {
             return false;
         }
@@ -75,7 +79,17 @@ const Tools = () => {
         }
 
         return true;
-    });
+    };
+
+    // preserve the order given in tabNames (when provided) rather than the
+    // master tab list's order, so callers can control tab placement
+    const orderedTabs = tabNames
+        ? (tabNames
+              .map((name) => tabs.find((tab) => tab.label === name))
+              .filter(Boolean) as TabItem[])
+        : tabs;
+
+    const filteredTabs = orderedTabs.filter(isTabVisible);
 
     return (
         <Widget>

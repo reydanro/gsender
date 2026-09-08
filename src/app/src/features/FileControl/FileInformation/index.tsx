@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import pubsub from 'pubsub-js';
 
 import { useTypedSelector } from 'app/hooks/useTypedSelector';
@@ -14,6 +14,7 @@ import {
     TooltipTrigger,
 } from 'app/components/shadcn/Tooltip';
 import { getRecentFiles } from '../utils/recentfiles';
+import { extractLeadingComment } from '../utils/leadingComment';
 import { RecentFile } from '../definitions';
 import { Job } from 'app/features/Stats/utils/StatContext';
 import { MdInfoOutline } from 'react-icons/md';
@@ -32,8 +33,13 @@ interface Props {
 }
 
 const FileInformation: React.FC<Props> = ({ handleRecentFileUpload }) => {
-    const { name, size, total, path, fileLoaded, fileProcessing } =
+    const { name, size, total, path, fileLoaded, fileProcessing, content } =
         useTypedSelector((state) => state.file);
+
+    const leadingComment = useMemo(
+        () => extractLeadingComment(content),
+        [content],
+    );
 
     const [toggleInfo, setToggleInfo] = useState(false);
     const [showEditor, setShowEditor] = useState(false);
@@ -98,10 +104,10 @@ const FileInformation: React.FC<Props> = ({ handleRecentFileUpload }) => {
     if (!fileLoaded) {
         return (
             <div
-                className={cx('mt-3 h-full', {
+                className={cx('h-full', {
                     'grid grid-cols-[3fr_2fr] gap-8 portrait:flex':
                         isElectron(),
-                    'flex justify-center': !isElectron(),
+                    'flex justify-end': !isElectron(),
                 })}
             >
                 {isElectron() && (
@@ -109,7 +115,7 @@ const FileInformation: React.FC<Props> = ({ handleRecentFileUpload }) => {
                         <span className="ml-6 dark:text-white">
                             Recent Files
                         </span>
-                        <ScrollArea className="ml-2 px-2 h-28 max-xl:h-[6.5rem] portrait:mb-5 bg-white dark:bg-dark rounded-xl border-2 dark:border-dark-lighter">
+                        <ScrollArea className="ml-2 px-2 h-20 max-xl:h-16 portrait:mb-2 bg-white dark:bg-dark rounded-xl border-2 dark:border-dark-lighter">
                             <div className="grid divide-y items-center mr-2">
                                 {recentFiles.map(
                                     (file, index) =>
@@ -177,7 +183,7 @@ const FileInformation: React.FC<Props> = ({ handleRecentFileUpload }) => {
                 )}
                 <div
                     className={cx(
-                        'flex flex-col gap-4 text-sm justify-between',
+                        'flex flex-col gap-2 text-sm justify-start',
                         {
                             'max-w-60': !isElectron(),
                         },
@@ -188,7 +194,7 @@ const FileInformation: React.FC<Props> = ({ handleRecentFileUpload }) => {
                             <span className="text-base text-gray-900 dark:text-gray-300">
                                 Last Job
                             </span>
-                            <div className="grid grid-rows-3 gap-4 max-xl:gap-2 -ml-[2px] text-gray-500 font-bold">
+                            <div className="grid grid-rows-3 gap-2 max-xl:gap-1 -ml-[2px] text-gray-500 font-bold">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -231,7 +237,6 @@ const FileInformation: React.FC<Props> = ({ handleRecentFileUpload }) => {
                                     </span>
                                 </div>
                             </div>
-                            <div className="h-1/2"></div>
                         </>
                     )}
                 </div>
@@ -267,7 +272,7 @@ const FileInformation: React.FC<Props> = ({ handleRecentFileUpload }) => {
     const [fileName, extension] = splitFileNameAndExtension(name);
 
     return (
-        <div className="flex flex-col justify-center items-center text-sm max-w-full text-gray-900 dark:text-gray-300 h-full w-full">
+        <div className="flex flex-col justify-start items-end text-sm max-w-full text-gray-900 dark:text-gray-300 h-full w-full">
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -298,7 +303,23 @@ const FileInformation: React.FC<Props> = ({ handleRecentFileUpload }) => {
                 </div>
             )}
 
-            <div className="flex gap-4 justify-center items-center w-full">
+            {leadingComment && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="text-gray-500 text-xs max-w-full flex flex-row gap-1">
+                                <span className="flex-shrink-0">Comment:</span>
+                                <span className="inline-block text-ellipsis overflow-hidden whitespace-nowrap">
+                                    {leadingComment}
+                                </span>
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>{leadingComment}</TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+
+            <div className="flex gap-4 justify-end items-center w-full">
                 <div className="flex flex-col items-center flex-shrink-0">
                     <span className="text-gray-500">Info</span>
                     <Switch

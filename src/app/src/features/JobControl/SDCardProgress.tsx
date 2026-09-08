@@ -30,7 +30,7 @@ export function SDCardProgress() {
     }
 
     return (
-        <div className="z-10 absolute bottom-[35%] portrait:bottom-[calc(50%+85px)] left-1/2 right-1/2 -translate-x-1/2 w-64 justify-center items-center flex">
+        <div className="z-10 absolute bottom-2 right-2 max-xl:bottom-1 max-xl:right-1">
             <div className="w-64">
                 <div className="border-solid border border-gray-500 dark:border-gray-700 rounded-sm bg-gray-100 dark:bg-dark gap-2 flex flex-row justify-between items-center pr-1 pt-1 text-gray-900 dark:text-gray-200">
                     <div className="flex flex-col gap-0 w-full h-full -mt-6">

@@ -1,15 +1,12 @@
 import RangeSlider from 'app/components/RangeSlider';
-import {
-    METRIC_UNITS,
-    OVERRIDE_VALUE_RANGES,
-    SPINDLE_MODE,
-} from '../../constants';
+import Button from 'app/components/Button';
+import Tooltip from 'app/components/Tooltip';
+import { FaMinus, FaPlus } from 'react-icons/fa';
+import { OVERRIDE_VALUE_RANGES, SPINDLE_MODE } from '../../constants';
 import controller from 'app/lib/controller';
 import debounce from 'lodash/debounce';
 import { useEffect, useState } from 'react';
 import store from 'app/store';
-import { mapPositionToUnits } from 'app/lib/units';
-import { useWorkspaceState } from 'app/hooks/useWorkspaceState.ts';
 import posthog from 'posthog-js';
 
 interface OverridesProps {
@@ -50,12 +47,10 @@ const Overrides: React.FC<OverridesProps> = ({
     ovF,
     ovS,
     ovTimestamp,
-    feedrate,
     spindle,
     isConnected,
 }) => {
     globalOvTimestamp = ovTimestamp;
-    const { units } = useWorkspaceState();
 
     const [showSpindleOverride, setShowSpindleOverride] = useState(
         store.get('workspace.spindleFunctions'),
@@ -67,12 +62,6 @@ const Overrides: React.FC<OverridesProps> = ({
     );
     const [localOvF, setLocalOvF] = useState(ovF);
     const [localOvS, setLocalOvS] = useState(ovS);
-    //const units: UNITS_EN = store.get('workspace.units', METRIC_UNITS);
-
-    const unitString = `${units}/min`;
-    if (units !== METRIC_UNITS) {
-        feedrate = mapPositionToUnits(feedrate, units);
-    }
 
     const handleStoreChange = () => {
         setShowSpindleOverride(store.get('workspace.spindleFunctions'));
@@ -99,41 +88,52 @@ const Overrides: React.FC<OverridesProps> = ({
         debouncedOvSUpdateHandler(ovS, setLocalOvS);
     }, [ovS]);
 
+    const setFeedOverride = (newValue: number) => {
+        setLocalOvF(newValue);
+        globalLocalOvFTimestamp = Date.now();
+        debouncedFeedHandler(newValue);
+    };
+
     return (
-        <div
-            className={
-                (showSpindleOverride
-                    ? 'grid grid-cols-1 grid-rows-2 gap-4 max-xl:gap-1'
-                    : 'flex justify-center items-center') + ' w-full'
-            }
-        >
-            <RangeSlider
-                step={10}
-                min={OVERRIDE_VALUE_RANGES.MIN}
-                max={OVERRIDE_VALUE_RANGES.MAX}
-                value={feedrate}
-                percentage={[localOvF]}
-                defaultPercentage={[100]}
-                showText={true}
-                title="Feed"
-                unitString={unitString}
-                colour={isConnected ? 'bg-blue-400' : 'bg-gray-500'}
-                disabled={!isConnected}
-                onChange={(values) => {
-                    setLocalOvF(values[0]);
-                    globalLocalOvFTimestamp = Date.now();
-                }}
-                onButtonPress={(values) => {
-                    setLocalOvF(values[0]);
-                    globalLocalOvFTimestamp = Date.now();
-                    debouncedFeedHandler(values[0]);
-                }}
-                // change to lost pointer capture as pointer up does not always fire when you pull past the slider and let go
-                onLostPointerCapture={(_e) => {
-                    debouncedFeedHandler(localOvF);
-                }}
-                id="feed-override"
-            />
+        <div className="flex flex-col gap-2 max-xl:gap-1 w-full items-end">
+            <div className="flex flex-row items-center gap-1.5 max-xl:gap-1">
+                <span className="text-sm max-xl:text-xs font-medium text-gray-700 dark:text-gray-300">
+                    Feed
+                </span>
+                <Tooltip content="Decrease Feed override by 10%">
+                    <Button
+                        type="button"
+                        onClick={() => {
+                            if (localOvF - 10 < OVERRIDE_VALUE_RANGES.MIN) {
+                                return;
+                            }
+                            setFeedOverride(localOvF - 10);
+                        }}
+                        disabled={!isConnected}
+                        size="sm"
+                        icon={<FaMinus />}
+                        aria-label="Decrease Feed override"
+                    />
+                </Tooltip>
+                <span className="min-w-11 text-center text-blue-500 dark:text-blue-400 font-medium tabular-nums">
+                    {isConnected ? `${localOvF}%` : '--'}
+                </span>
+                <Tooltip content="Increase Feed override by 10%">
+                    <Button
+                        type="button"
+                        onClick={() => {
+                            if (localOvF + 10 > OVERRIDE_VALUE_RANGES.MAX) {
+                                return;
+                            }
+                            setFeedOverride(localOvF + 10);
+                        }}
+                        disabled={!isConnected}
+                        size="sm"
+                        icon={<FaPlus />}
+                        aria-label="Increase Feed override"
+                    />
+                </Tooltip>
+            </div>
             {showSpindleOverride && (
                 <RangeSlider
                     step={10}

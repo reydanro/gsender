@@ -288,6 +288,26 @@ class Visualizer extends Component {
 
         // Animation state
         this.animationLoopRunning = false;
+
+        this.resizeObserver = null;
+    }
+
+    addContainerResizeObserver() {
+        if (typeof ResizeObserver === 'undefined' || !this.node) {
+            return;
+        }
+
+        this.resizeObserver = new ResizeObserver(() => {
+            this.throttledResize();
+        });
+        this.resizeObserver.observe(this.node);
+    }
+
+    removeContainerResizeObserver() {
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
+        }
     }
 
     addStoreEvents() {
@@ -302,6 +322,7 @@ class Visualizer extends Component {
         this.addControllerEvents();
         this.addStoreEvents();
         this.addResizeEventListener();
+        this.addContainerResizeObserver();
         window.addEventListener('keydown', this.handleKeyDown);
 
         // Ensure the DOM element is available before creating the scene
@@ -689,6 +710,7 @@ class Visualizer extends Component {
         this.removeControllerEvents();
         this.unsubscribe();
         this.removeResizeEventListener();
+        this.removeContainerResizeObserver();
         window.removeEventListener('keydown', this.handleKeyDown);
         this.clearScene();
 

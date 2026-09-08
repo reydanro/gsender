@@ -4,7 +4,6 @@ import includes from 'lodash/includes';
 import get from 'lodash/get';
 import inRange from 'lodash/inRange';
 import throttle from 'lodash/throttle';
-import cx from 'classnames';
 
 import { JogInput } from 'app/features/Jogging/components/JogInput';
 import { JogWheel } from 'app/features/Jogging/components/JogWheel';
@@ -595,18 +594,9 @@ export function Jogging({ hideRotary = false }) {
     function updateJogValues(values: JogValueObject) {
         setJogSpeed(values);
     }
-    function updateXYStep(step: number) {
+    function updateXYZStep(step: number) {
         const newJogSpeed = {
             xyStep: step,
-            zStep: jogSpeed.zStep,
-            aStep: jogSpeed.aStep,
-            feedrate: jogSpeed.feedrate,
-        };
-        setJogSpeed(newJogSpeed);
-    }
-    function updateZStep(step: number) {
-        const newJogSpeed = {
-            xyStep: jogSpeed.xyStep,
             zStep: step,
             aStep: jogSpeed.aStep,
             feedrate: jogSpeed.feedrate,
@@ -1005,8 +995,8 @@ export function Jogging({ hideRotary = false }) {
             useAaxisForGrbl);
 
     return (
-        <>
-            <div className="flex flex-row w-full gap-2 justify-around items-center select-none max-xl:scale-90">
+        <div className="flex flex-row flex-wrap w-full gap-3 max-xl:gap-2 justify-center items-center select-none max-xl:scale-90">
+            <div className="flex flex-row items-center gap-2 max-xl:gap-1">
                 <div className="min-w-[180px] portrait:min-w-[210px] relative">
                     <JogWheel
                         distance={jogSpeed.xyStep}
@@ -1042,54 +1032,33 @@ export function Jogging({ hideRotary = false }) {
                     )}
                 </div>
             </div>
-            <div className="flex gap-1 w-full justify-around">
-                <div
-                    className={cx('flex items-center justify-center', {
-                        'px-7': !showA,
-                    })}
-                >
-                    <div
-                        className={cx(
-                            'grid gap-x-1 portrait:gap-x-2 items-center',
-                            {
-                                'grid-cols-2 gap-y-3 portrait:gap-y-6': showA,
-                                'grid-cols-1 gap-y-1 xl:gap-y-2 portrait:gap-y-4':
-                                    !showA,
-                            },
-                        )}
-                    >
+            <div className="flex items-center justify-center">
+                <div className="flex flex-col gap-1 xl:gap-2 portrait:gap-4 items-stretch">
+                    <JogInput
+                        label="XYZ"
+                        screenReaderLabel="XYZ jog distance"
+                        currentValue={jogSpeed.xyStep}
+                        onChange={updateXYZStep}
+                    />
+                    {showA && (
                         <JogInput
-                            label="XY"
-                            screenReaderLabel="XY jog distance"
-                            currentValue={jogSpeed.xyStep}
-                            onChange={updateXYStep}
+                            label="A°"
+                            screenReaderLabel="A jog distance"
+                            currentValue={jogSpeed.aStep}
+                            onChange={updateAStep}
                         />
-                        <JogInput
-                            label="Z"
-                            screenReaderLabel="Z jog distance"
-                            currentValue={jogSpeed.zStep}
-                            onChange={updateZStep}
-                        />
-                        {showA && (
-                            <JogInput
-                                label="A°"
-                                screenReaderLabel="A jog distance"
-                                currentValue={jogSpeed.aStep}
-                                onChange={updateAStep}
-                            />
-                        )}
-                        <JogInput
-                            label="at"
-                            screenReaderLabel="Jog feedrate"
-                            currentValue={jogSpeed.feedrate}
-                            onChange={updateFeedrate}
-                        />
-                    </div>
-                </div>
-                <div className="flex float-right portrait:scale-100 max-xl:scale-90 max-xl:-mt-[5px] max-xl:-mb-[5px]">
-                    <SpeedSelector handleClick={updateJogValues} />
+                    )}
+                    <JogInput
+                        label="at"
+                        screenReaderLabel="Jog feedrate"
+                        currentValue={jogSpeed.feedrate}
+                        onChange={updateFeedrate}
+                    />
                 </div>
             </div>
-        </>
+            <div className="flex portrait:scale-100 max-xl:scale-90">
+                <SpeedSelector handleClick={updateJogValues} />
+            </div>
+        </div>
     );
 }
